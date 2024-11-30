@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% load static %} 
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Your Shopping Cart</title>
+        <link rel="stylesheet" href="{% static 'css/style.css' %}">
+<script>
+   function getCsrfToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (token) {
+        return token.value;
+    }
+    return '';  // Return an empty string if token is not found
+    }
+
+function updateCart(productId, action) {
+    const csrfToken = getCsrfToken();
+
+    fetch("{% url 'update_cart' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+            product_id: productId,
+            action: action,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the cart items dynamically
+            if (action === 'remove') {
+                // Remove the product row from the DOM
+                const productRow = document.getElementById(`product-${productId}`);
+                if (productRow) {
+                    productRow.remove();
+                }
+            }else{
+                data.cart_items.forEach(item => {
+                document.getElementById(`quantity-${item.product_id}`).textContent = item.quantity;
+                document.getElementById(`item-total-${item.product_id}`).textContent = `$${item.item_total}`;
+                });
+            }
+         
+            document.getElementById('total-price').textContent = `$${data.total_price}`;
+
+            // Check if the cart is empty and show the empty message
+            if (data.cart_items.length === 0) {
+                document.querySelector('#cart-items-body').innerHTML = '<tr><td colspan="5">Your cart is empty.</td></tr>';
+            }
+        } else {
+            alert(data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function checkout() {
+    const csrfToken = getCsrfToken();
+
+    fetch("{% url 'checkout' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ action: 'checkout' })  // Send an action to indicate checkout
+    })
+    .then(response => response.json())
+    .then(data => {
+        const messageDiv = document.getElementById('message');
+        if (data.success) {
+            messageDiv.style.color = 'green';
+            messageDiv.textContent = data.success;
+
+            setTimeout(() => {
+                window.location.href = "/";  // Redirect after successful checkout
+            }, 200);
+        } else {
+            messageDiv.style.color = 'red';
+            messageDiv.textContent = data.error;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}   
+
+// just loading the total price for display 
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchUpdatedCart();
+    });
+    
+    function fetchUpdatedCart() {
+        console.log('fetchUpdatedCart function is called.');
+        const csrfToken = getCsrfToken();
+
+        fetch("{% url 'cart_json' %}", {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.cart_empty) {
+                document.querySelector('tbody').innerHTML = '<tr><td colspan="5">Your cart is empty.</td></tr>';
+            } else {
+            
+                document.getElementById('total-price').textContent = `$${data.total_price}`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+    </script>
+</head>
+
+<body>
+
+    <div class=" flex flex-col justify-center items-center" style="width: 98vw;">
+        <div class="w-full flex items-center justify-center border-pink-500" 
+            style="height: 100px; margin-bottom: 10px; border-bottom: 1px solid; border-top: 1px solid; border-color: #fbbfce;
+        ">
+            <img src="../../../static/image/beautyNature_cut.jpg" style="height: 80px; object-fit: fill;"  alt="">
+        </div>
+        <div class=" flex items-center border-pink-500" 
+            style="height: 60px; margin-bottom: 10px; justify-content: space-between; width: 100%;
+        ">
+            <h4 class="text-pink-200 cursor-pointer" onclick="window.location.href='/'">
+                Home
+            </h4>
+            <div class=" flex gap-2 items-center">
+                <button 
+                class="flex items-center cursor-pointer rounded-md icon-button" 
+                style="background-color: white; border: none;" 
+                onclick="window.location.href='/cart'">
+                    <img src="../../../static/image/cart.svg" alt="">
+                </button>
+                <p>
+                    {% if request.user.is_authenticated %}
+                        {{ request.user.username }}
+                        / <a href="{% url 'logout' %}" style="text-decoration: none; color: inherit;">Logout</a>
+                    {% else %}
+                        user
+                    {% endif %}
+                </p>
+                
+            </div>
+        </div>
+        <div class="w-full">
+            <h2 class="text-pink-200">Your Shopping Cart</h2>
+            <div id="message"></div>
+        
+            {% if empty_message %}
+                <p>{{ empty_message }}</p>
+            {% else %}
+                <table class="s-table">
+                    <thead>
+                        <tr style="height: 3rem; border-bottom: 2px solid;">
+                            <th class="product" style="width: 40vw;">Product</th>
+                            <th style="width: 20vw;">Price</th>
+                            <th style="width: 15vw;">Quantity</th>
+                            <th style="width: 15vw; text-align: left;">Item Total</th>
+                            <th style="width: 3vw; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-items-body" class="" style="border: 1px #7f6244">
+                        {% for item in cart_items %}
+                            <tr id="product-{{ item.product.id }}" style="height: 3rem; border-top: 1px solid ; border-bottom: 1px solid ;">
+                                <td class="product" style="width: 40vw;">{{ item.product.name }}</td>
+                                <td style="width: 20vw; text-align: center;">${{ item.product.price }}</td>
+                                <td class="quantity" style="width: 15vw; text-align: center; ;">
+                                    <div class="w-full flex justify-center">
+                                        <div class="flex items-center rounded-xl justify-center" style="border: 1px solid; width: 5rem; height: 2.5rem;">
+                                            <button 
+                                                onclick="updateCart('{{ item.product.id }}', 'decrease')"
+                                                class="icon-button rounded-md" style="border: 0px solid;"
+                                            >
+                                                -
+                                            </button>
+
+                                            <span id="quantity-{{ item.product.id }}" 
+                                                style="width: 2rem; min-width: 2rem; max-width: 2rem;"
+                                            >{{ item.quantity }}</span>
+                                            
+                                            <button onclick="updateCart('{{ item.product.id }}', 'increase')"
+                                                class="icon-button rounded-md" style="border: 0px solid;">
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="item-total" id="item-total-{{ item.product.id }}" style="width: 15vw; ">${{ item.item_total|floatformat:2 }}</td>
+                                <td style="width: 3vw; text-align: center;">
+                                    <button onclick="updateCart('{{ item.product.id }}', 'remove')" class="icon-button rounded-xl" style="height: 2.5rem; border: 1px solid;" 
+                                    >Remove</button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+    
+                <h3>Total Price: <span id="total-price">${{ total_price|floatformat:2 }}</span></h3>
+    
+                <button onclick="checkout()"  class="bg-pink-200 text-lg text-white cursor-pointer=" style="height: 2.5rem;border: 0px solid; padding: 0 2rem;
+                    ">Complete Purchase</button>
+    
+            {% endif %}
+            </div>
+        </div >
+     
+    </div>
+
+    
+        
+</body>
+
+</html>
+</html>

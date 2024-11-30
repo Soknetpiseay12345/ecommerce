@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% load static %} 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product List</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script>
+        // Function to get the CSRF token from the page
+        function getCsrfToken() {
+            const token = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (token) {
+                return token.value;
+            }
+            return '';  // Return an empty string if token is not found
+        }
+
+        // Function to handle adding product to the cart
+        function addToCart(productId) {
+            const csrfToken = getCsrfToken();  // Get CSRF token
+
+            fetch('/add/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,  // Include CSRF token in the headers
+                },
+                body: JSON.stringify({ 'productId': productId }),  // Send product ID in JSON format
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Product added to cart successfully!');
+                } else if (data.error) {
+                    alert(data.error);  // Show error message if the API returns an error
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Something went wrong. Please try again.');
+            });
+        }
+    </script>
+</head>
+<body>
+    <div class="w-screen flex flex-col justify-center items-center">
+        <div class="w-full flex items-center justify-center border-pink-500" 
+            style="height: 100px; margin-bottom: 10px; border-bottom: 1px solid; border-top: 1px solid; border-color: #fbbfce;
+        ">
+            <img src="../../../static/image/beautyNature_cut.jpg" style="height: 80px; object-fit: fill;"  alt="">
+        </div>
+        <div class=" flex items-center border-pink-500" 
+            style="height: 60px; margin-bottom: 10px; justify-content: space-between; width: 95%;
+        ">
+            <h4 class="text-pink-200 ">
+                home
+            </h4>
+            <div class=" flex gap-2 items-center">
+                <button 
+                class="flex items-center cursor-pointer rounded-md icon-button" 
+                style="background-color: white; border: none;" 
+                onclick="window.location.href='/cart'">
+                    <img src="../../../static/image/cart.svg" alt="">
+                </button>
+                <p>
+                    {% if request.user.is_authenticated %}
+                        {{ request.user.username }}
+                        / <a href="{% url 'logout' %}" style="text-decoration: none; color: inherit;">Logout</a>
+                    {% else %}
+                        user
+                    {% endif %}
+                </p>
+                
+            </div>
+        </div>
+        <div class="flex items-center relative" style="width: 98%; height: 90vh;   padding: 0 10px 40px 0;">
+            <img src="../../../static/image/PHOTO.svg" style="width: 100%; height: 90vh; object-fit: cover;" alt="">
+            <p class="absolute text-white" style="font-size: 4.5vw; width: 40vw; translate: 2vw -20px;">
+                Radiant skin begins with care
+            </p>
+        </div>
+        <div style="height: 150px;">
+            <img src="../../../static/image/flower.svg" alt="">
+            <h1  style="translate: 40px -120px;">Product List</h1>
+        </div>
+        <!-- <p>CSRF Token: {{ csrf_token }}</p> -->
+        
+
+        <div class="grid-cols-4 gap-4 " style="display: grid; padding-left: 2vw; padding-right: 2vw;">
+            {% for product in products %}
+                <div class="flex flex-col  rounded-md " style="min-width: 19rem; max-width: 19rem; gap: 0; padding: 4px 4px 10px 4px ;">
+                    {% if product.image_url %}
+                        <img style="width: 19rem; height: 22rem; object-fit: cover;" class="border-slate-100" src="{{ product.image_url }}" alt="{{ product.name }}" width="100">
+                    {% else %}
+                        <p>No image available</p>
+                    {% endif %}
+                    <h3 class="truncate-2-lines">{{ product.name }}</h3>
+                    <!-- <h3>Product ID: {{ product.id }}</h3> -->
+                    <!-- <p class="truncate">{{ product.description }}</p> -->
+                    <p class="w-full text-center text-xl">${{ product.price }}</p>
+                    <button onclick="addToCart({{ product.id }})" class="bg-pink-200 text-lg text-white cursor-pointer=" style="height: 2.5rem;border: 0px solid;
+                    ">Add to Cart</button>
+                </div> 
+            {% empty %}
+                <p>No products found.</p>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
